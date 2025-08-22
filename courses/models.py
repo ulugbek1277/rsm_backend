@@ -1,10 +1,10 @@
 from django.db import models
 from django.utils.text import slugify
-from apps.core.models import AuditableModel, SoftDeleteModel
-from apps.core.utils import generate_slug
+from core.models import AuditableMixin, SoftDeleteMixin, TimeStampedMixin
+from core.utils import generate_slug
 
 
-class Course(AuditableModel, SoftDeleteModel):
+class Course(TimeStampedMixin, SoftDeleteMixin, AuditableMixin, models.Model):
     """
     Course model for educational programs
     """

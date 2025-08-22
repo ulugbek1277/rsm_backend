@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import SmsTemplate, SmsLog, Broadcast
-from apps.core.serializers import BaseModelSerializer
+from core.serializers import BaseModelSerializer
 
 
 class SmsTemplateSerializer(BaseModelSerializer):

@@ -6,8 +6,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Count, Sum
 from django.utils import timezone
 from datetime import datetime, timedelta
-
-from apps.core.permissions import IsStaffOrReadOnly, IsSuperAdminOrAdministrator
+from core.permissions import IsStaffOrReadOnly
 from .models import Student, StudentEnrollment, StudentDocument, StudentNote
 from .serializers import (
     StudentSerializer, StudentListSerializer, StudentDetailSerializer,

@@ -12,9 +12,9 @@ from .serializers import (
     PaymentSerializer, PaymentCreateSerializer,
     DebtSnapshotSerializer, DebtorReportSerializer
 )
-from apps.core.permissions import IsAccountant, IsAdminOrReadOnly
-from apps.core.views import BaseModelViewSet
-from apps.accounts.models import User
+from core.permissions import IsAccountant, IsAdminOrReadOnly
+from core.views import BaseModelViewSet
+from accounts.models import User
 
 
 class InvoiceViewSet(BaseModelViewSet):

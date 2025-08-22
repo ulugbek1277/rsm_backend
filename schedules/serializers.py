@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Lesson, CalendarOverride
-from apps.core.serializers import BaseModelSerializer
+from core.serializers import BaseModelSerializer
 
 
 class LessonSerializer(BaseModelSerializer):

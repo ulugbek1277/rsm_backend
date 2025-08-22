@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Group, GroupStudent
-from apps.core.serializers import BaseModelSerializer, UserBasicSerializer
+from core.serializers import BaseModelSerializer, UserBasicSerializer
 
 
 class GroupStudentSerializer(BaseModelSerializer):

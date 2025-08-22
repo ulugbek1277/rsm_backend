@@ -1,6 +1,6 @@
 from django.db import models
 from django.core.cache import cache
-from apps.core.models import BaseModel
+from core.models import BaseModel
 
 
 class GlobalSettings(BaseModel):

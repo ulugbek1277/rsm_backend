@@ -15,8 +15,8 @@ from .serializers import (
     EmployeeProfileSerializer,
     StudentProfileSerializer
 )
-from apps.core.permissions import IsSuperAdmin, IsAdminOrReadOnly, IsSelfOrAdmin
-from apps.core.views import BaseModelViewSet
+from core.permissions import IsSuperAdmin, IsAdminOrReadOnly, IsSelfOrAdmin
+from core.views import BaseModelViewSet
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):

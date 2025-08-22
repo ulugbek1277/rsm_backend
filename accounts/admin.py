@@ -50,14 +50,21 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('phone', 'role', 'first_name', 'last_name', 'email')
         }),
     )
-    
-    def get_inlines(self, request, obj):
-        if obj and obj.is_staff_member:
-            return [EmployeeProfileInline]
-        elif obj and obj.is_student:
-            return [StudentProfileInline]
-        return []
-    
+
+    inlines = []
+
+    def get_inline_instances(self, request, obj=None):
+        """Dynamic inlines based on user role"""
+        if not obj:
+            return []
+        inlines = []
+        if hasattr(obj, 'role'):
+            if obj.role in ['superadmin', 'administrator', 'teacher', 'accountant']:
+                inlines.append(EmployeeProfileInline(self.model, self.admin_site))
+            elif obj.role == 'student':
+                inlines.append(StudentProfileInline(self.model, self.admin_site))
+        return inlines
+
     def colored_role(self, obj):
         colors = {
             'superadmin': '#dc3545',  # Red

@@ -10,8 +10,8 @@ from .serializers import (
     BroadcastSerializer, BroadcastCreateSerializer, SendSmsSerializer
 )
 from .tasks import send_sms, send_broadcast_sms
-from apps.core.permissions import IsSuperAdmin, IsAdminOrReadOnly
-from apps.core.views import BaseModelViewSet
+from core.permissions import IsSuperAdmin, IsAdminOrReadOnly
+from core.views import BaseModelViewSet
 
 
 class SmsTemplateViewSet(BaseModelViewSet):

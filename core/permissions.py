@@ -86,6 +86,16 @@ class IsSelfOrAdmin(permissions.BasePermission):
         
         return obj == request.user
 
+class IsStaffOrReadOnly(permissions.BasePermission):
+    """
+    Agar foydalanuvchi staff bo'lsa, barcha CRUD amallar ruxsat etiladi,
+    aks holda faqat o'qish (GET, HEAD, OPTIONS) ruxsat etiladi.
+    """
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return request.user and request.user.is_authenticated and request.user.is_staff
+
 
 class IsGroupMember(permissions.BasePermission):
     """

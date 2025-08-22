@@ -1,10 +1,10 @@
 from django.db import models
 from django.utils import timezone
-from apps.core.models import AuditableModel, SoftDeleteModel
-from apps.accounts.models import User
+from core.models import BaseModel
+from accounts.models import User
 
 
-class SmsTemplate(AuditableModel, SoftDeleteModel):
+class SmsTemplate(BaseModel):
     """
     SMS template with placeholders
     """
@@ -34,9 +34,6 @@ class SmsTemplate(AuditableModel, SoftDeleteModel):
     
     @classmethod
     def get_default_templates(cls):
-        """
-        Get default SMS templates
-        """
         defaults = [
             {
                 'code': 'ABSENCE_NOTIFICATION',
@@ -66,7 +63,7 @@ class SmsTemplate(AuditableModel, SoftDeleteModel):
         return defaults
 
 
-class SmsLog(AuditableModel):
+class SmsLog(BaseModel):
     """
     SMS sending log
     """
@@ -103,9 +100,6 @@ class SmsLog(AuditableModel):
         return f"SMS to {self.recipient_phone} - {self.get_status_display()}"
     
     def mark_as_sent(self, provider_id=None):
-        """
-        Mark SMS as sent
-        """
         self.status = 'sent'
         self.sent_at = timezone.now()
         if provider_id:
@@ -113,23 +107,17 @@ class SmsLog(AuditableModel):
         self.save()
     
     def mark_as_delivered(self):
-        """
-        Mark SMS as delivered
-        """
         self.status = 'delivered'
         self.delivered_at = timezone.now()
         self.save()
     
     def mark_as_failed(self, error_message):
-        """
-        Mark SMS as failed
-        """
         self.status = 'failed'
         self.error_message = error_message
         self.save()
 
 
-class Broadcast(AuditableModel, SoftDeleteModel):
+class Broadcast(BaseModel):
     """
     SMS broadcast to multiple recipients
     """
@@ -160,14 +148,8 @@ class Broadcast(AuditableModel, SoftDeleteModel):
         blank=True,
         help_text="Agar guruh tanlangan bo'lsa"
     )
-    custom_phones = models.TextField(
-        blank=True,
-        help_text="Maxsus telefon raqamlar (har qatorga bittadan)"
-    )
-    scheduled_for = models.DateTimeField(
-        default=timezone.now,
-        help_text="Yuborish vaqti"
-    )
+    custom_phones = models.TextField(blank=True, help_text="Maxsus telefon raqamlar (har qatorga bittadan)")
+    scheduled_for = models.DateTimeField(default=timezone.now, help_text="Yuborish vaqti")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     total_recipients = models.PositiveIntegerField(default=0)
     sent_count = models.PositiveIntegerField(default=0)
@@ -185,80 +167,39 @@ class Broadcast(AuditableModel, SoftDeleteModel):
         return f"{self.title} - {self.get_status_display()}"
     
     def get_recipients(self):
-        """
-        Get list of recipient phone numbers
-        """
         phones = []
-        
         if self.audience_type == 'all_students':
-            phones = list(User.objects.filter(
-                role=User.STUDENT,
-                is_active=True
-            ).values_list('phone', flat=True))
-        
+            phones = list(User.objects.filter(role=User.STUDENT, is_active=True).values_list('phone', flat=True))
         elif self.audience_type == 'all_parents':
-            phones = list(User.objects.filter(
-                role=User.STUDENT,
-                is_active=True,
-                student_profile__isnull=False
-            ).values_list('student_profile__parent_phone', flat=True))
-        
+            phones = list(User.objects.filter(role=User.STUDENT, is_active=True, student_profile__isnull=False).values_list('student_profile__parent_phone', flat=True))
         elif self.audience_type == 'group_students' and self.target_group:
-            phones = list(self.target_group.students.filter(
-                is_active=True
-            ).values_list('student__phone', flat=True))
-        
+            phones = list(self.target_group.students.filter(is_active=True).values_list('student__phone', flat=True))
         elif self.audience_type == 'group_parents' and self.target_group:
-            phones = list(self.target_group.students.filter(
-                is_active=True,
-                student__student_profile__isnull=False
-            ).values_list('student__student_profile__parent_phone', flat=True))
-        
+            phones = list(self.target_group.students.filter(is_active=True, student__student_profile__isnull=False).values_list('student__student_profile__parent_phone', flat=True))
         elif self.audience_type == 'debtors':
-            # Get students with debt
-            from apps.payments.models import Invoice
-            debtor_students = User.objects.filter(
-                role=User.STUDENT,
-                invoices__status__in=['pending', 'partial', 'overdue'],
-                invoices__is_active=True,
-                student_profile__isnull=False
-            ).distinct()
+            from payments.models import Invoice
+            debtor_students = User.objects.filter(role=User.STUDENT, invoices__status__in=['pending','partial','overdue'], invoices__is_active=True, student_profile__isnull=False).distinct()
             phones = list(debtor_students.values_list('student_profile__parent_phone', flat=True))
-        
         elif self.audience_type == 'custom':
             phones = [phone.strip() for phone in self.custom_phones.split('\n') if phone.strip()]
-        
-        # Remove duplicates and empty values
-        phones = list(set([phone for phone in phones if phone]))
-        return phones
+        return list(set([phone for phone in phones if phone]))
     
     def start_sending(self):
-        """
-        Start sending broadcast
-        """
         recipients = self.get_recipients()
         self.total_recipients = len(recipients)
         self.status = 'sending'
         self.started_at = timezone.now()
         self.save()
-        
-        # Queue SMS sending task
         from .tasks import send_broadcast_sms
         send_broadcast_sms.delay(self.id)
     
     def mark_as_completed(self):
-        """
-        Mark broadcast as completed
-        """
         self.status = 'completed'
         self.completed_at = timezone.now()
         self.save()
     
     @property
     def success_rate(self):
-        """
-        Calculate success rate percentage
-        """
         if self.total_recipients == 0:
             return 0
         return round((self.sent_count / self.total_recipients) * 100, 1)

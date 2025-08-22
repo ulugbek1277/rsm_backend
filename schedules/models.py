@@ -1,10 +1,10 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from apps.core.models import AuditableModel, SoftDeleteModel
+from core.models import BaseModel
 
 
-class Lesson(AuditableModel, SoftDeleteModel):
+class Lesson(BaseModel):
     """
     Regular weekly lesson schedule
     """
@@ -64,30 +64,27 @@ class Lesson(AuditableModel, SoftDeleteModel):
                 )
     
     def save(self, *args, **kwargs):
-        self.clean()
+        self.full_clean()
         super().save(*args, **kwargs)
     
     @property
     def duration_hours(self):
         """Calculate lesson duration in hours"""
-        from datetime import datetime, timedelta
+        from datetime import datetime
         start = datetime.combine(timezone.now().date(), self.start_time)
         end = datetime.combine(timezone.now().date(), self.end_time)
-        duration = end - start
-        return duration.total_seconds() / 3600
+        return (end - start).total_seconds() / 3600
     
     def get_next_occurrence(self):
         """Get next occurrence date for this lesson"""
         today = timezone.now().date()
         days_ahead = self.weekday - today.weekday()
-        
         if days_ahead <= 0:  # Target day already happened this week
             days_ahead += 7
-        
         return today + timezone.timedelta(days=days_ahead)
 
 
-class CalendarOverride(AuditableModel, SoftDeleteModel):
+class CalendarOverride(BaseModel):
     """
     Calendar overrides for holidays, cancellations, or special events
     """
@@ -155,7 +152,7 @@ class CalendarOverride(AuditableModel, SoftDeleteModel):
             )
     
     def save(self, *args, **kwargs):
-        self.clean()
+        self.full_clean()
         super().save(*args, **kwargs)
         
         # Send notification if needed
@@ -166,10 +163,10 @@ class CalendarOverride(AuditableModel, SoftDeleteModel):
         """
         Send SMS notification about schedule change
         """
-        from apps.messaging.tasks import send_schedule_change_notification
+        from messaging.tasks import send_schedule_change_notification
         
         # Queue SMS notification task
         send_schedule_change_notification.delay(self.id)
         
         self.notification_sent = True
-        self.save(update_fields=['notification_sent'])
+        super().save(update_fields=['notification_sent'])

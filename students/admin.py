@@ -15,7 +15,7 @@ class StudentAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Shaxsiy ma\'lumotlar', {
             'fields': ('user', 'first_name', 'last_name', 'middle_name', 
-                      'birth_date', 'gender', 'photo')
+                       'birth_date', 'gender', 'photo')
         }),
         ('Aloqa ma\'lumotlari', {
             'fields': ('phone', 'email', 'region', 'district', 'address')
@@ -30,6 +30,12 @@ class StudentAdmin(admin.ModelAdmin):
             'fields': ('status', 'enrollment_date', 'total_debt', 'last_payment_date', 'notes')
         }),
     )
+
+    # Admin list_display ichida property ishlashini ta'minlash
+    def full_name(self, obj):
+        return obj.full_name
+    full_name.admin_order_field = 'first_name'
+    full_name.short_description = 'To\'liq ism'
 
 
 @admin.register(StudentEnrollment)

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import Student, StudentEnrollment, StudentDocument, StudentNote
-from apps.courses.serializers import CourseSerializer
+from courses.serializers import CourseSerializer
 
 User = get_user_model()
 

@@ -8,8 +8,8 @@ from .serializers import (
     GroupSerializer, GroupCreateSerializer, GroupListSerializer,
     GroupStudentSerializer, GroupStudentCreateSerializer
 )
-from apps.core.permissions import IsAdminOrReadOnly, IsTeacherOfGroup
-from apps.core.views import BaseModelViewSet
+from core.permissions import IsAdminOrReadOnly, IsTeacherOfGroup
+from core.views import BaseModelViewSet
 
 
 class GroupViewSet(BaseModelViewSet):

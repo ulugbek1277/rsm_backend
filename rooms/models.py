@@ -1,9 +1,31 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from apps.core.models import AuditableModel, SoftDeleteModel
 
 
+# === BASE MIXINS ===
+class AuditableModel(models.Model):
+    """Model with created_at and updated_at timestamps"""
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
+class SoftDeleteModel(models.Model):
+    """Model with soft delete functionality"""
+    is_deleted = models.BooleanField(default=False)
+
+    def delete(self, using=None, keep_parents=False):
+        self.is_deleted = True
+        self.save(update_fields=['is_deleted'])
+
+    class Meta:
+        abstract = True
+
+
+# === MAIN MODELS ===
 class Room(AuditableModel, SoftDeleteModel):
     """
     Room model for classrooms
@@ -13,16 +35,16 @@ class Room(AuditableModel, SoftDeleteModel):
     location = models.CharField(max_length=200, blank=True, help_text="Xona joylashuvi")
     equipment = models.TextField(blank=True, help_text="Xona jihozlari")
     notes = models.TextField(blank=True, help_text="Qo'shimcha eslatmalar")
-    
+
     class Meta:
         db_table = 'rooms_room'
         verbose_name = 'Room'
         verbose_name_plural = 'Rooms'
         ordering = ['name']
-    
+
     def __str__(self):
         return f"{self.name} (sig'imi: {self.capacity})"
-    
+
     def is_available(self, date, start_time, end_time, exclude_booking=None):
         """
         Check if room is available for given time slot
@@ -31,12 +53,12 @@ class Room(AuditableModel, SoftDeleteModel):
             date=date,
             status__in=['confirmed', 'in_progress']
         )
-        
+
         if exclude_booking:
             bookings = bookings.exclude(id=exclude_booking.id)
-        
+
         for booking in bookings:
-            if (start_time < booking.end_time and end_time > booking.start_time):
+            if start_time < booking.end_time and end_time > booking.start_time:
                 return False
         return True
 
@@ -52,7 +74,7 @@ class RoomBooking(AuditableModel, SoftDeleteModel):
         ('completed', 'Yakunlangan'),
         ('cancelled', 'Bekor qilingan'),
     ]
-    
+
     room = models.ForeignKey(
         Room,
         on_delete=models.CASCADE,
@@ -79,27 +101,27 @@ class RoomBooking(AuditableModel, SoftDeleteModel):
         help_text="Booking maqsadi"
     )
     notes = models.TextField(blank=True)
-    
+
     class Meta:
         db_table = 'rooms_booking'
         verbose_name = 'Room Booking'
         verbose_name_plural = 'Room Bookings'
         ordering = ['date', 'start_time']
         unique_together = ['room', 'date', 'start_time', 'end_time']
-    
+
     def __str__(self):
         return f"{self.room.name} - {self.date} ({self.start_time}-{self.end_time})"
-    
+
     def clean(self):
         """
         Validate booking constraints
         """
         if self.start_time >= self.end_time:
             raise ValidationError("Boshlanish vaqti tugash vaqtidan oldin bo'lishi kerak")
-        
+
         if self.date < timezone.now().date():
             raise ValidationError("O'tgan sanaga booking qilib bo'lmaydi")
-        
+
         # Check room availability
         if not self.room.is_available(
             self.date, self.start_time, self.end_time, exclude_booking=self
@@ -108,20 +130,20 @@ class RoomBooking(AuditableModel, SoftDeleteModel):
                 f"{self.room.name} xonasi {self.date} sanasida "
                 f"{self.start_time}-{self.end_time} vaqtida band"
             )
-    
+
     def save(self, *args, **kwargs):
         self.clean()
         super().save(*args, **kwargs)
-    
+
     @property
     def duration_hours(self):
         """Calculate booking duration in hours"""
-        from datetime import datetime, timedelta
+        from datetime import datetime
         start = datetime.combine(self.date, self.start_time)
         end = datetime.combine(self.date, self.end_time)
         duration = end - start
         return duration.total_seconds() / 3600
-    
+
     @property
     def is_current(self):
         """Check if booking is currently active"""

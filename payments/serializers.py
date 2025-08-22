@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Invoice, Payment, DebtSnapshot
-from apps.core.serializers import BaseModelSerializer, UserBasicSerializer
+from core.serializers import BaseModelSerializer, UserBasicSerializer
 
 
 class PaymentSerializer(BaseModelSerializer):

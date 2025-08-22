@@ -9,8 +9,8 @@ from .serializers import (
     LessonSerializer, LessonCreateSerializer,
     CalendarOverrideSerializer, CalendarOverrideCreateSerializer
 )
-from apps.core.permissions import IsAdminOrReadOnly, IsTeacherOfGroup
-from apps.core.views import BaseModelViewSet
+from core.permissions import IsAdminOrReadOnly, IsTeacherOfGroup
+from core.views import BaseModelViewSet
 
 
 class LessonViewSet(BaseModelViewSet):

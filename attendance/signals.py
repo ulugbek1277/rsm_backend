@@ -1,13 +1,9 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import AttendanceRecord
 
-
-@receiver(post_save, sender=AttendanceRecord)
-def handle_attendance_record_save(sender, instance, created, **kwargs):
-    """
-    Handle attendance record save - send notifications if needed
-    """
-    if created and instance.status == 'absent_unexcused':
-        # Notification will be sent via the model's save method
-        pass
+# AttendanceRecord modelini string orqali chaqiramiz, shunda importdan circular error bo'lmaydi
+@receiver(post_save, sender='attendance.AttendanceRecord')
+def attendance_record_saved(sender, instance, created, **kwargs):
+    if created:
+        # Masalan, yangi AttendanceRecord qo'shilganda xabar yuborish logikasi
+        print(f"New attendance record for {instance.student} on {instance.session.date}")

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import User, EmployeeProfile, StudentProfile
-from apps.core.serializers import BaseModelSerializer
+from core.serializers import BaseModelSerializer
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):

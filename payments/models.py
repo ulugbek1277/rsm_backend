@@ -2,14 +2,11 @@ from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from decimal import Decimal
-from apps.core.models import AuditableModel, SoftDeleteModel
-from apps.accounts.models import User
+from core.models import BaseModel
+from accounts.models import User
 
 
-class Invoice(AuditableModel, SoftDeleteModel):
-    """
-    Invoice model for student payments
-    """
+class Invoice(BaseModel):
     STATUS_CHOICES = [
         ('pending', 'Kutilmoqda'),
         ('paid', 'To\'langan'),
@@ -31,22 +28,13 @@ class Invoice(AuditableModel, SoftDeleteModel):
         null=True,
         blank=True
     )
-    amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        help_text="To'lov miqdori (so'm)"
-    )
-    due_date = models.DateField(help_text="To'lov muddati")
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    due_date = models.DateField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     issued_at = models.DateTimeField(default=timezone.now)
-    description = models.TextField(blank=True, help_text="To'lov tavsifi")
-    discount_amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=Decimal('0.00'),
-        help_text="Chegirma miqdori"
-    )
-    
+    description = models.TextField(blank=True)
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+
     class Meta:
         db_table = 'payments_invoice'
         verbose_name = 'Invoice'
@@ -57,15 +45,10 @@ class Invoice(AuditableModel, SoftDeleteModel):
         return f"Invoice #{self.id} - {self.student.get_full_name()} - {self.amount} so'm"
     
     def clean(self):
-        """
-        Validate invoice constraints
-        """
         if self.amount <= 0:
             raise ValidationError("To'lov miqdori 0 dan katta bo'lishi kerak")
-        
         if self.discount_amount < 0:
             raise ValidationError("Chegirma miqdori manfiy bo'lishi mumkin emas")
-        
         if self.discount_amount >= self.amount:
             raise ValidationError("Chegirma miqdori to'lov miqdoridan kam bo'lishi kerak")
     
@@ -76,55 +59,41 @@ class Invoice(AuditableModel, SoftDeleteModel):
     
     @property
     def final_amount(self):
-        """Calculate final amount after discount"""
         return self.amount - self.discount_amount
     
     @property
     def paid_amount(self):
-        """Calculate total paid amount"""
-        return self.payments.aggregate(
-            total=models.Sum('paid_amount')
-        )['total'] or Decimal('0.00')
+        return self.payments.aggregate(total=models.Sum('paid_amount'))['total'] or Decimal('0.00')
     
     @property
     def remaining_amount(self):
-        """Calculate remaining amount to pay"""
         return self.final_amount - self.paid_amount
     
     @property
     def is_overdue(self):
-        """Check if invoice is overdue"""
         return self.due_date < timezone.now().date() and self.status != 'paid'
     
     @property
     def days_overdue(self):
-        """Calculate days overdue"""
-        if self.is_overdue:
-            return (timezone.now().date() - self.due_date).days
-        return 0
+        return (timezone.now().date() - self.due_date).days if self.is_overdue else 0
     
     def update_status(self):
-        """Update invoice status based on payments"""
         paid = self.paid_amount
         final = self.final_amount
-        
         if paid >= final:
-            self.status = 'paid'
+            status = 'paid'
         elif paid > 0:
-            self.status = 'partial'
+            status = 'partial'
         elif self.is_overdue:
-            self.status = 'overdue'
+            status = 'overdue'
         else:
-            self.status = 'pending'
-        
-        # Save without triggering signals to avoid recursion
-        Invoice.objects.filter(id=self.id).update(status=self.status)
+            status = 'pending'
+        if self.status != status:
+            Invoice.objects.filter(id=self.id).update(status=status)
+            self.status = status
 
 
-class Payment(AuditableModel, SoftDeleteModel):
-    """
-    Payment model for tracking payments
-    """
+class Payment(BaseModel):
     METHOD_CHOICES = [
         ('cash', 'Naqd'),
         ('card', 'Karta'),
@@ -137,14 +106,10 @@ class Payment(AuditableModel, SoftDeleteModel):
         on_delete=models.CASCADE,
         related_name='payments'
     )
-    paid_amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        help_text="To'langan miqdor (so'm)"
-    )
+    paid_amount = models.DecimalField(max_digits=10, decimal_places=2)
     paid_at = models.DateTimeField(default=timezone.now)
     method = models.CharField(max_length=20, choices=METHOD_CHOICES, default='cash')
-    note = models.TextField(blank=True, help_text="To'lov haqida eslatma")
+    note = models.TextField(blank=True)
     receipt_number = models.CharField(max_length=100, blank=True)
     
     class Meta:
@@ -157,30 +122,18 @@ class Payment(AuditableModel, SoftDeleteModel):
         return f"Payment #{self.id} - {self.paid_amount} so'm - {self.invoice.student.get_full_name()}"
     
     def clean(self):
-        """
-        Validate payment constraints
-        """
         if self.paid_amount <= 0:
             raise ValidationError("To'lov miqdori 0 dan katta bo'lishi kerak")
-        
-        # Check if payment doesn't exceed remaining amount
-        remaining = self.invoice.remaining_amount
-        if self.paid_amount > remaining:
-            raise ValidationError(
-                f"To'lov miqdori qolgan miqdordan ({remaining} so'm) oshmasligi kerak"
-            )
+        if self.paid_amount > self.invoice.remaining_amount:
+            raise ValidationError(f"To'lov miqdori qolgan miqdordan oshmasligi kerak")
     
     def save(self, *args, **kwargs):
         self.clean()
         super().save(*args, **kwargs)
-        # Update invoice status
         self.invoice.update_status()
 
 
-class DebtSnapshot(AuditableModel):
-    """
-    Periodic snapshot of student debts for reporting
-    """
+class DebtSnapshot(BaseModel):
     snapshot_date = models.DateField(default=timezone.now)
     student = models.ForeignKey(
         User,
@@ -188,21 +141,9 @@ class DebtSnapshot(AuditableModel):
         related_name='debt_snapshots',
         limit_choices_to={'role': User.STUDENT}
     )
-    total_debt = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        help_text="Umumiy qarz miqdori (so'm)"
-    )
-    overdue_debt = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=Decimal('0.00'),
-        help_text="Muddati o'tgan qarz miqdori"
-    )
-    overdue_days = models.PositiveIntegerField(
-        default=0,
-        help_text="Eng eski qarzning muddati o'tgan kunlari"
-    )
+    total_debt = models.DecimalField(max_digits=10, decimal_places=2)
+    overdue_debt = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    overdue_days = models.PositiveIntegerField(default=0)
     
     class Meta:
         db_table = 'payments_debt_snapshot'
@@ -216,32 +157,22 @@ class DebtSnapshot(AuditableModel):
     
     @classmethod
     def create_snapshot(cls, student, date=None):
-        """
-        Create debt snapshot for a student
-        """
         if date is None:
             date = timezone.now().date()
-        
-        # Calculate total debt
         unpaid_invoices = Invoice.objects.filter(
             student=student,
             status__in=['pending', 'partial', 'overdue'],
             is_active=True
         )
-        
         total_debt = Decimal('0.00')
         overdue_debt = Decimal('0.00')
         max_overdue_days = 0
-        
         for invoice in unpaid_invoices:
             remaining = invoice.remaining_amount
             total_debt += remaining
-            
             if invoice.is_overdue:
                 overdue_debt += remaining
                 max_overdue_days = max(max_overdue_days, invoice.days_overdue)
-        
-        # Create or update snapshot
         snapshot, created = cls.objects.update_or_create(
             snapshot_date=date,
             student=student,
@@ -251,27 +182,15 @@ class DebtSnapshot(AuditableModel):
                 'overdue_days': max_overdue_days
             }
         )
-        
         return snapshot
     
     @classmethod
     def create_daily_snapshots(cls, date=None):
-        """
-        Create debt snapshots for all students with debt
-        """
         if date is None:
             date = timezone.now().date()
-        
-        # Get all students with unpaid invoices
         students_with_debt = User.objects.filter(
             role=User.STUDENT,
             invoices__status__in=['pending', 'partial', 'overdue'],
             invoices__is_active=True
         ).distinct()
-        
-        snapshots = []
-        for student in students_with_debt:
-            snapshot = cls.create_snapshot(student, date)
-            snapshots.append(snapshot)
-        
-        return snapshots
+        return [cls.create_snapshot(student, date) for student in students_with_debt]

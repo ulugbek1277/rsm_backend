@@ -4,12 +4,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.core.cache import cache
-from django.http import JsonResponse
 
-from apps.core.permissions import IsSuperAdminOrAdministrator
 from .models import GlobalSettings, UserSettings, SettingsCategory, SettingsBackup
 from .serializers import (
-    GlobalSettingsSerializer, UserSettingsSerializer, 
+    GlobalSettingsSerializer, UserSettingsSerializer,
     SettingsCategorySerializer, SettingsBackupSerializer,
     SettingsExportSerializer, SettingsImportSerializer
 )
@@ -18,7 +16,7 @@ from .serializers import (
 class GlobalSettingsViewSet(viewsets.ModelViewSet):
     queryset = GlobalSettings.objects.all()
     serializer_class = GlobalSettingsSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdminOrAdministrator]
+    permission_classes = [IsAuthenticated]  # Faqat autentifikatsiya qilingan foydalanuvchilar
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['category', 'setting_type', 'is_active', 'is_public']
     search_fields = ['key', 'description']
@@ -29,17 +27,17 @@ class GlobalSettingsViewSet(viewsets.ModelViewSet):
         """Get settings grouped by category"""
         categories = SettingsCategory.objects.filter(is_active=True)
         result = {}
-        
+
         for category in categories:
             settings = GlobalSettings.objects.filter(
-                category=category.name, 
+                category=category.name,
                 is_active=True
             )
             result[category.name] = {
                 'category_info': SettingsCategorySerializer(category).data,
                 'settings': GlobalSettingsSerializer(settings, many=True).data
             }
-        
+
         return Response(result)
 
     @action(detail=False, methods=['get'])
@@ -53,15 +51,15 @@ class GlobalSettingsViewSet(viewsets.ModelViewSet):
         """Bulk update settings"""
         settings_data = request.data.get('settings', [])
         updated_settings = []
-        
+
         for setting_data in settings_data:
             key = setting_data.get('key')
             if key:
                 try:
                     setting = GlobalSettings.objects.get(key=key)
                     serializer = GlobalSettingsSerializer(
-                        setting, 
-                        data=setting_data, 
+                        setting,
+                        data=setting_data,
                         partial=True
                     )
                     if serializer.is_valid():
@@ -69,10 +67,10 @@ class GlobalSettingsViewSet(viewsets.ModelViewSet):
                         updated_settings.append(serializer.data)
                 except GlobalSettings.DoesNotExist:
                     pass
-        
+
         # Clear cache
         cache.clear()
-        
+
         return Response({
             'updated_count': len(updated_settings),
             'updated_settings': updated_settings
@@ -85,13 +83,13 @@ class GlobalSettingsViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             categories = serializer.validated_data.get('categories', [])
             include_inactive = serializer.validated_data.get('include_inactive', False)
-            
+
             queryset = GlobalSettings.objects.all()
             if categories:
                 queryset = queryset.filter(category__in=categories)
             if not include_inactive:
                 queryset = queryset.filter(is_active=True)
-            
+
             settings_data = {}
             for setting in queryset:
                 settings_data[setting.key] = {
@@ -102,12 +100,12 @@ class GlobalSettingsViewSet(viewsets.ModelViewSet):
                     'is_active': setting.is_active,
                     'is_public': setting.is_public,
                 }
-            
+
             return Response({
                 'settings_data': settings_data,
                 'export_count': len(settings_data)
             })
-        
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['post'])
@@ -117,10 +115,10 @@ class GlobalSettingsViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             settings_data = serializer.validated_data['settings_data']
             overwrite_existing = serializer.validated_data.get('overwrite_existing', False)
-            
+
             created_count = 0
             updated_count = 0
-            
+
             for key, data in settings_data.items():
                 setting, created = GlobalSettings.objects.get_or_create(
                     key=key,
@@ -133,7 +131,7 @@ class GlobalSettingsViewSet(viewsets.ModelViewSet):
                         'is_public': data.get('is_public', False),
                     }
                 )
-                
+
                 if created:
                     created_count += 1
                 elif overwrite_existing:
@@ -145,16 +143,16 @@ class GlobalSettingsViewSet(viewsets.ModelViewSet):
                     setting.is_public = data.get('is_public', setting.is_public)
                     setting.save()
                     updated_count += 1
-            
+
             # Clear cache
             cache.clear()
-            
+
             return Response({
                 'created_count': created_count,
                 'updated_count': updated_count,
                 'total_processed': len(settings_data)
             })
-        
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -185,13 +183,13 @@ class UserSettingsViewSet(viewsets.ModelViewSet):
         key = request.data.get('key')
         value = request.data.get('value')
         setting_type = request.data.get('setting_type', 'string')
-        
+
         if not key or value is None:
             return Response(
-                {'error': 'key va value majburiy'}, 
+                {'error': 'key va value majburiy'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         setting = UserSettings.set_user_setting(
             request.user, key, value, setting_type
         )
@@ -202,27 +200,27 @@ class UserSettingsViewSet(viewsets.ModelViewSet):
 class SettingsCategoryViewSet(viewsets.ModelViewSet):
     queryset = SettingsCategory.objects.all()
     serializer_class = SettingsCategorySerializer
-    permission_classes = [IsAuthenticated, IsSuperAdminOrAdministrator]
+    permission_classes = [IsAuthenticated]  # Removed IsSuperAdminOrAdministrator
     ordering = ['order', 'name']
 
 
 class SettingsBackupViewSet(viewsets.ModelViewSet):
     queryset = SettingsBackup.objects.all()
     serializer_class = SettingsBackupSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdminOrAdministrator]
+    permission_classes = [IsAuthenticated]  # Removed IsSuperAdminOrAdministrator
     ordering = ['-created_at']
 
     def perform_create(self, serializer):
         # Create backup with current settings
         name = serializer.validated_data['name']
         description = serializer.validated_data.get('description', '')
-        
+
         backup = SettingsBackup.create_backup(
             name=name,
             description=description,
             user=self.request.user
         )
-        
+
         return Response(SettingsBackupSerializer(backup).data)
 
     @action(detail=True, methods=['post'])
@@ -230,7 +228,7 @@ class SettingsBackupViewSet(viewsets.ModelViewSet):
         """Restore settings from backup"""
         backup = self.get_object()
         backup.restore_settings()
-        
+
         return Response({
             'message': 'Sozlamalar muvaffaqiyatli tiklandi',
             'restored_count': len(backup.settings_data)

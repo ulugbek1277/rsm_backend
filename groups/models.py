@@ -1,11 +1,11 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from apps.core.models import AuditableModel, SoftDeleteModel
-from apps.accounts.models import User
+from core.models import BaseModel
+from accounts.models import User
 
 
-class Group(AuditableModel, SoftDeleteModel):
+class Group(BaseModel):
     """
     Group model for student groups
     """
@@ -60,12 +60,8 @@ class Group(AuditableModel, SoftDeleteModel):
         return f"{self.name} - {self.course.title}"
     
     def clean(self):
-        """
-        Validate group constraints
-        """
         if self.planned_start >= self.planned_end:
             raise ValidationError("Boshlanish sanasi tugash sanasidan oldin bo'lishi kerak")
-        
         if self.actual_start and self.actual_end:
             if self.actual_start >= self.actual_end:
                 raise ValidationError("Haqiqiy boshlanish sanasi tugash sanasidan oldin bo'lishi kerak")
@@ -76,43 +72,33 @@ class Group(AuditableModel, SoftDeleteModel):
     
     @property
     def current_students_count(self):
-        """Count of currently active students"""
-        return self.students.filter(is_active=True).count()
+        return self.students.count()
     
     @property
     def available_spots(self):
-        """Available spots for new students"""
         return self.max_students - self.current_students_count
     
     @property
     def is_full(self):
-        """Check if group is full"""
         return self.current_students_count >= self.max_students
     
     @property
     def completion_percentage(self):
-        """Calculate completion percentage based on dates"""
         if not self.actual_start:
             return 0
-        
         if self.actual_end:
             return 100
-        
         today = timezone.now().date()
         if today < self.actual_start:
             return 0
-        
         total_days = (self.planned_end - self.actual_start).days
         elapsed_days = (today - self.actual_start).days
-        
         if total_days <= 0:
             return 100
-        
-        percentage = min(100, max(0, (elapsed_days / total_days) * 100))
-        return round(percentage, 1)
+        return round(min(100, max(0, (elapsed_days / total_days) * 100)), 1)
 
 
-class GroupStudent(AuditableModel, SoftDeleteModel):
+class GroupStudent(BaseModel):
     """
     Many-to-many relationship between Group and Student with additional fields
     """
@@ -124,7 +110,7 @@ class GroupStudent(AuditableModel, SoftDeleteModel):
     student = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='groups',
+        related_name='group_memberships',  # ⚠ Clash oldini olish uchun o'zgartirildi
         limit_choices_to={'role': User.STUDENT}
     )
     joined_at = models.DateField(default=timezone.now)
@@ -142,13 +128,8 @@ class GroupStudent(AuditableModel, SoftDeleteModel):
         return f"{self.student.get_full_name()} - {self.group.name}"
     
     def clean(self):
-        """
-        Validate group student constraints
-        """
         if self.left_at and self.joined_at >= self.left_at:
             raise ValidationError("Qo'shilish sanasi chiqish sanasidan oldin bo'lishi kerak")
-        
-        # Check if group is full (excluding current student if updating)
         if self.group.is_full and not self.pk:
             raise ValidationError(f"{self.group.name} guruhi to'liq")
     
@@ -158,11 +139,9 @@ class GroupStudent(AuditableModel, SoftDeleteModel):
     
     @property
     def is_currently_active(self):
-        """Check if student is currently active in group"""
-        return self.is_active and not self.left_at
+        return not self.left_at
     
     @property
     def duration_days(self):
-        """Calculate duration in group"""
         end_date = self.left_at or timezone.now().date()
         return (end_date - self.joined_at).days

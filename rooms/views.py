@@ -9,8 +9,8 @@ from .serializers import (
     RoomSerializer, RoomListSerializer, RoomBookingSerializer,
     RoomBookingCreateSerializer, RoomAvailabilitySerializer
 )
-from apps.core.permissions import IsAdminOrReadOnly
-from apps.core.views import BaseModelViewSet
+from core.permissions import IsAdminOrReadOnly
+from core.views import BaseModelViewSet
 
 
 class RoomViewSet(BaseModelViewSet):

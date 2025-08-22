@@ -10,46 +10,44 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-me')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = True
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
 
 # Application definition
-DJANGO_APPS = [
+INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-]
 
-THIRD_PARTY_APPS = [
+    # 3rd party apps
     'rest_framework',
     'rest_framework_simplejwt',
     'django_filters',
     'corsheaders',
     'drf_spectacular',
     'simple_history',
-]
+    'celery',
+    'drf_yasg',
 
-LOCAL_APPS = [
-    'apps.core',
-    'apps.accounts',
-    'apps.courses',
-    'apps.rooms',
-    'apps.schedules',
-    'apps.groups',
-    'apps.students',
-    'apps.payments',
-    'apps.attendance',
-    'apps.exams',
-    'apps.messaging',
-    'apps.tasks',
-    'apps.settingshub',
+    # my apps
+    'core',
+    'accounts',
+    'courses',
+    'rooms',
+    'schedules',
+    'groups',
+    'students',
+    'payments',
+    'attendance',
+    # 'exams',
+    'messaging',
+    'tasks',
+    'settingshub',
 ]
-
-INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -159,7 +157,7 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'EduMaster CRM API',
     'DESCRIPTION': 'O\'quv markazi uchun CRM tizimi API',
     'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
+    'SERVE_INCLUDE_SCHEMA': True,
 }
 
 # CORS Settings

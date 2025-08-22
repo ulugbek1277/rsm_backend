@@ -5,8 +5,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Course
 from .serializers import CourseSerializer, CourseCreateSerializer, CourseListSerializer
-from apps.core.permissions import IsAdminOrReadOnly
-from apps.core.views import BaseModelViewSet
+from core.permissions import IsAdminOrReadOnly
+from core.views import BaseModelViewSet
 
 
 class CourseViewSet(BaseModelViewSet):
